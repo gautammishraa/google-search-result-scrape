@@ -1,30 +1,58 @@
-import urllib
+#Import all the necessary packages
+
 import requests
+import re
+import pandas as pd
 from bs4 import BeautifulSoup
+from googlesearch import search
 
-# desktop user-agent
-USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:65.0) Gecko/20100101 Firefox/65.0"
-# mobile user-agent
-MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 7.0; SM-G930V Build/NRD90M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.125 Mobile Safari/537.36"
 
-query = "hackernoon How To Scrape Google With Python"
-query = query.replace(' ', '+')
-URL = f"https://google.com/search?q={query}"
+#Get Search Query from User
+keyword = input("Search Query: ")
+keyword = keyword.lower()
+num = int(input('Number of Results:'))
+stop = num
 
-headers = {"user-agent": USER_AGENT}
-resp = requests.get(URL, headers=headers)
 
-if resp.status_code == 200:
-    soup = BeautifulSoup(resp.content, "html.parser")
-    results = []
-    for g in soup.find_all('div', class_='r'):
-        anchors = g.find_all('a')
-        if anchors:
-            link = anchors[0]['href']
-            title = g.find('h3').text
-            item = {
-                "title": title,
-                "link": link
-            }
-            results.append(item)
-    print(results)
+#Assign empty lists to hold the output
+Keyword_Count = []
+Page_Title = []
+URL_List = []
+Meta_Description = []
+
+#Perform Google Search for the keyword
+
+for url in search(keyword, tld='com', num = num, stop = stop, pause=3.0):
+    URL_List.append(url)
+
+#Create a dummy user-agent for HTTP header request
+
+headers =  {'User-Agent': 'Mozilla/5.0 (Windows NT x.y; Win64; x64; rv:10.0) Gecko/20100101 Firefox/10.0 '}      
+
+
+#Scrape all the URL in for loop
+for url in URL_List:
+    meta_flag = False
+    response = requests.get(url, headers=headers)
+    lower_response_text = response.text.lower()
+    match = re.findall("%s" % keyword, lower_response_text)#Get Keyword Count
+    count = (len(match))
+    Keyword_Count.append(count)  
+    #Page Title and Meta Description
+    soup = BeautifulSoup(response.text, 'lxml')
+    title_text = soup.title.text #Get Page Title
+    Page_Title.append(title_text)
+    metas = soup.find_all('meta') #Get Meta Description
+    for m in metas:
+        if m.get ('name') == 'description':
+            desc = m.get('content')
+            Meta_Description.append(desc)
+            meta_flag = True
+            continue
+    if not meta_flag:
+        desc = "Not Found"
+        Meta_Description.append(desc)
+        
+d = {'Page URL': URL_List, 'Page Title':Page_Title, 'Keyword Count': Keyword_Count, 'Meta Description': Meta_Description}
+result = pd.DataFrame(d)
+result
